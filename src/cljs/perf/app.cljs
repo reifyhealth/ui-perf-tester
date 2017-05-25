@@ -103,7 +103,7 @@
                  :type :range
                  :min 1
                  :step 1
-                 :max 10
+                 :max 20
                  :onChange (set-value :workers js/parseInt)}]]]]
      [:div.row
       [:div.col.s12.input-field
