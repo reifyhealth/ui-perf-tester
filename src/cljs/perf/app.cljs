@@ -19,14 +19,14 @@
 (defn initial-state
   "Gets the initial configured state."
   []
-  {:delay default-delay
-   :workers default-workers
-   :uri default-uri
-   :started? false
-   :calls 0
-   :errors 0
+  {:delay     default-delay
+   :workers   default-workers
+   :uri       default-uri
+   :started?  false
+   :calls     0
+   :errors    0
    :responses []
-   :xhr []})
+   :xhr       []})
 
 (defonce app-state
   (atom (initial-state)))
@@ -58,17 +58,19 @@
   "Performs an XHR GET request of the supplied URI."
   [uri]
   (ajax-request
-   {:uri (cachebuster (:uri @app-state))
-    :method :get
-    :format (json-request-format)
+   {:uri             (cachebuster (:uri @app-state))
+    :method          :get
+    :format          (json-request-format)
     :response-format (json-response-format {:keywords? true})
     :handler
     (fn [[ok response]]
-      (swap! app-state (fn [data]
-                   (cond-> data
-                     true     (update :calls inc)
-                     (not ok) (update :errors inc)
-                     true     (update :responses conj response)))))}))
+      (swap!
+       app-state
+       (fn [data]
+         (cond-> data
+           true     (update :calls inc)
+           (not ok) (update :errors inc)
+           true     (update :responses conj response)))))}))
 
 ;; -- event handlers --
 
@@ -77,7 +79,7 @@
   to make XHR JSON requests to the URI."
   []
   (toggle!)
-  (println "Started")
+  (println (str "Started " (:workers @app-state) " workers."))
   (dotimes [_ (:workers @app-state)]
     (go-loop []
       (<! (timeout (:delay @app-state)))
@@ -90,7 +92,7 @@
   browser's network queue will continue to complete."
   []
   (toggle!)
-  (println "Stopped"))
+  (println "Stop new requests (queued requests will still complete)."))
 
 (defn reset
   "Reset the app state to its initial defaults."
