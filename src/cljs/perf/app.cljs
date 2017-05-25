@@ -10,8 +10,10 @@
 
 ;; -- application state --
 
-(defonce default-delay 200)
+(defonce default-delay 100)
+(defonce max-delay 10000)
 (defonce default-workers 20)
+(defonce min-workers 1)
 (defonce default-uri "/sample.json")
 
 (defn initial-state
@@ -124,9 +126,9 @@
         [:input {:value (:delay @data)
                  :type
                  :range
-                 :min 100
+                 :min default-delay
                  :step 100
-                 :max 10000
+                 :max max-delay
                  :onChange (set-value :delay js/parseInt)}]]]
       [:div.col.s6.range-field
        [:label (str "Workers: " (:workers @data) (when (:started? @data) " (disabled while running)"))
@@ -134,9 +136,9 @@
                  :value (:workers @data)
                  :class (if (:started? @data) "disabled" "")
                  :type :range
-                 :min 1
+                 :min min-workers
                  :step 1
-                 :max 20
+                 :max default-workers
                  :onChange (set-value :workers js/parseInt)}]]]]
      [:div.row
       [:div.col.s12.input-field
