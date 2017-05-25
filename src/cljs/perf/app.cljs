@@ -2,7 +2,6 @@
   "A test UI that allows us to generate a large number of XHR requests."
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [reagent.core :as reagent :refer [atom]]
-            [cljs.pprint :refer [pprint]]
             [promesa.core :as p]
             [cljs.core.async :as async :refer [put! chan <! >! timeout close! chan]]
             [ajax.core :refer [ajax-request json-request-format json-response-format]]))
@@ -26,20 +25,15 @@
    :started?  false
    :calls     0
    :errors    0
-   :responses []})
+   :responses []
+   :promises  []})
 
 (defonce app-state
   (atom (initial-state)))
 
 (defn ^:export current-state
-  "Gets the current configured state."
   []
   (clj->js @app-state))
-
-(defn- save-ref
-  "Save a reference to an object in the app-state under the key, k."
-  [k o]
-  (swap! app-state update k conj o))
 
 (defn- toggle!
   "Toggles the started/stopped app-state value."
@@ -66,6 +60,7 @@
        :response-format (json-response-format {:keywords? true})
        :handler
        (fn [[ok? response]]
+         (swap! app-state update :calls inc)
          (if ok?
            (resolve response)
            (reject response)))}))))
@@ -83,14 +78,11 @@
          (fn [response]
            (swap! app-state
                   (fn [data]
-                    (-> data
-                        (update :calls inc)
-                        (update :responses conj response)))))
+                    (update data :responses conj response))))
          (fn [error]
            (swap! app-state
                   (fn [data]
                     (-> data
-                        (update :calls inc)
                         (update :errors inc)
                         (update :responses conj error))))))
         (recur)))))
@@ -103,7 +95,9 @@
     (go-loop []
       (<! (timeout (:delay @app-state)))
       (when (:started? @app-state)
-        (>! work-chan (http-get (:uri @app-state)))
+        (let [promise (http-get (:uri @app-state))]
+          (swap! app-state update :promises conj promise)
+          (>! work-chan promise))
         (recur)))))
 
 ;; -- event handlers --
@@ -123,13 +117,18 @@
   browser's network queue will continue to complete."
   []
   (toggle!)
-  (println "Stop new requests (queued requests will still complete)."))
+  (println "Stopping new requests (queued requests will still complete)."))
 
 (defn reset
   "Reset the app state to its initial defaults."
   []
   (reset! app-state (initial-state))
   (js/console.clear))
+
+(defn report
+  "Prints the current state to the console"
+  []
+  (js/console.dir (current-state)))
 
 (defn set-value
   "Sets the value in app-state stored under the key, k, to the
@@ -207,7 +206,11 @@
       [:div.col
        [:button.blue.darken-3.waves-effect.waves-light.btn.s1.white-text
         {:onClick reset}
-        "Reset"]]]]))
+        "Reset"]]
+      [:div.col
+       [:button.indigo.darken-3.waves-effect.waves-light.btn.s1.white-text
+        {:onClick report}
+        "Report"]]]]))
 
 ;; -- entry point--
 
