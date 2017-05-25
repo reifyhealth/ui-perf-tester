@@ -1,0 +1,24 @@
+#+TITLE: Browser Performance Test
+
+* Running
+
+To run this sample, open a terminal window and type:
+
+#+begin_src shell
+
+boot dev
+
+#+end_src
+
+and visit [[http://localhost:3000][http://localhost:3000]] in your browser.
+
+* Experiment Design
+
+This sample app allows you to specify a JSON endpoint to request via XHR. The UI
+allows you to control the concurrency level and the delay between requests. Once
+you've set these values, click the *Start* button to run the test. Keep an eye on
+the network tab in your browser's development tools during the test. We're
+trying to recreate conditions under which the requests will run serially instead
+of in parallel. Click *Stop* to pause the execution and dump the contents of the
+state atom to the console. Resume by clicking *Start*, or click *Reset* to clear the
+console and restore the application to its initial state.
