@@ -10,14 +10,14 @@
 
 ;; -- application state --
 
-(defonce default-frequency 200)
+(defonce default-delay 200)
 (defonce default-workers 20)
 (defonce default-uri "/sample.json")
 
 (defn initial-state
   "Gets the initial configured state."
   []
-  {:frequency default-frequency
+  {:delay default-delay
    :workers default-workers
    :uri default-uri
    :started? false
@@ -78,7 +78,7 @@
   (println "Started")
   (dotimes [_ (:workers @app-state)]
     (go-loop []
-      (<! (timeout (:frequency @app-state)))
+      (<! (timeout (:delay @app-state)))
       (when (:started? @app-state)
         (save-ref :xhr (http-get (:uri @app-state)))
         (recur)))))
@@ -120,14 +120,14 @@
 
      [:div.row
       [:div.col.s6.range-field
-       [:label (str "Ajax Delay: " (:frequency @data) "ms")
-        [:input {:value (:frequency @data)
+       [:label (str "Ajax Delay: " (:delay @data) "ms")
+        [:input {:value (:delay @data)
                  :type
                  :range
                  :min 100
                  :step 100
                  :max 10000
-                 :onChange (set-value :frequency js/parseInt)}]]]
+                 :onChange (set-value :delay js/parseInt)}]]]
       [:div.col.s6.range-field
        [:label (str "Workers: " (:workers @data) (when (:started? @data) " (disabled while running)"))
         [:input {:disabled (:started? @data)
