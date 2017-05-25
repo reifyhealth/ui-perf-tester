@@ -12,6 +12,7 @@
                  [org.clojure/clojurescript "1.9.456"]
                  [org.clojure/core.async "0.3.442"]
                  [cljs-ajax "0.6.0"]
+                 [funcool/promesa "1.8.0"]
                  [reagent "0.6.0"]])
 
 (require

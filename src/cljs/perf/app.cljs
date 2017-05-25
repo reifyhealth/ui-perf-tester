@@ -3,7 +3,8 @@
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [reagent.core :as reagent :refer [atom]]
             [cljs.pprint :refer [pprint]]
-            [cljs.core.async :as async :refer [put! chan <! >! timeout close!]]
+            [promesa.core :as p]
+            [cljs.core.async :as async :refer [put! chan <! >! timeout close! chan]]
             [ajax.core :refer [ajax-request json-request-format json-response-format]]))
 
 (enable-console-print!)
@@ -25,8 +26,7 @@
    :started?  false
    :calls     0
    :errors    0
-   :responses []
-   :xhr       []})
+   :responses []})
 
 (defonce app-state
   (atom (initial-state)))
@@ -57,20 +57,54 @@
 (defn ^:export http-get
   "Performs an XHR GET request of the supplied URI."
   [uri]
-  (ajax-request
-   {:uri             (cachebuster (:uri @app-state))
-    :method          :get
-    :format          (json-request-format)
-    :response-format (json-response-format {:keywords? true})
-    :handler
-    (fn [[ok response]]
-      (swap!
-       app-state
-       (fn [data]
-         (cond-> data
-           true     (update :calls inc)
-           (not ok) (update :errors inc)
-           true     (update :responses conj response)))))}))
+  (p/promise
+   (fn [resolve reject]
+     (ajax-request
+      {:uri             (cachebuster (:uri @app-state))
+       :method          :get
+       :format          (json-request-format)
+       :response-format (json-response-format {:keywords? true})
+       :handler
+       (fn [[ok? response]]
+         (if ok?
+           (resolve response)
+           (reject response)))}))))
+
+(defn start-consumer!
+  "Starts a consumer to pull a promise off the work channel
+  and update the app-state with its value."
+  [work-chan]
+  (println "Starting 1 work channel promise consumer.")
+  (go-loop []
+    (when (:started? @app-state)
+      (when-let [promise (<! work-chan)]
+        (p/branch
+         promise
+         (fn [response]
+           (swap! app-state
+                  (fn [data]
+                    (-> data
+                        (update :calls inc)
+                        (update :responses conj response)))))
+         (fn [error]
+           (swap! app-state
+                  (fn [data]
+                    (-> data
+                        (update :calls inc)
+                        (update :errors inc)
+                        (update :responses conj error))))))
+        (recur)))))
+
+(defn start-workers!
+  "Starts n producers that put XHR promises on the work channel."
+  [work-chan n]
+  (println (str "Starting " n " work channel XHR promise producers."))
+  (dotimes [_ n]
+    (go-loop []
+      (<! (timeout (:delay @app-state)))
+      (when (:started? @app-state)
+        (>! work-chan (http-get (:uri @app-state)))
+        (recur)))))
 
 ;; -- event handlers --
 
@@ -78,14 +112,11 @@
   "Event handler for the start button. Kicks off N workers
   to make XHR JSON requests to the URI."
   []
-  (toggle!)
-  (println (str "Started " (:workers @app-state) " workers."))
-  (dotimes [_ (:workers @app-state)]
-    (go-loop []
-      (<! (timeout (:delay @app-state)))
-      (when (:started? @app-state)
-        (save-ref :xhr (http-get (:uri @app-state)))
-        (recur)))))
+  (let [workers   (:workers @app-state)
+        work-chan (chan workers)]
+    (toggle!)
+    (start-consumer! work-chan)
+    (start-workers! work-chan workers)))
 
 (defn stop
   "Stops the XHR submission loop. Note that requests sitting in the
